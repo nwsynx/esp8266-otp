@@ -25,7 +25,7 @@ The `esp8266-otp` project leverages the ESP8266 microcontroller to function as a
    pip install pyserial dearpygui
    ```
 
-3. **Run the Application**: Execute the Python script to start the manage script:
+3. **Run the Application**: Execute the Python script to start the configuration script:
    ```sh
    python main.py
    ```
@@ -33,17 +33,14 @@ The `esp8266-otp` project leverages the ESP8266 microcontroller to function as a
 ### Configuration
 
 1. **Select COM Port**: Use the application to detect and select the appropriate COM port for the ESP8266.
+   
+   ![Select port](images/select_port.png)
 2. **Enter Master PIN**: Input the master PIN to authenticate and access the main management interface.
+   
+   ![Enter PIN](images/enter_pin.png)
 3. **Manage Tokens**: Add, delete, or refresh TOTP tokens. Update WiFi settings or change the master PIN as needed.
-
-## Usage
-
-1. **Start the Python Application**: Launch the GUI by running `main.py`.
-2. **Connect to ESP8266**: Select the correct COM port and baud rate.
-3. **Authenticate**: Enter the master PIN to access the management interface.
-4. **Manage Tokens**: Use the GUI to add or delete tokens, update WiFi settings, and change the master PIN.
-
-   ![Select port](images/select_port.png) ![Enter PIN](images/enter_pin.png) ![GUI](images/gui.png)
+   
+   ![GUI](images/gui.png)
 
 
 ## Contributions

@@ -25,7 +25,7 @@ The `esp8266-otp` project leverages the ESP8266 microcontroller to function as a
    pip install pyserial dearpygui
    ```
 
-3. **Run the Application**: Execute the Python script to start the management interface:
+3. **Run the Application**: Execute the Python script to start the manage script:
    ```sh
    python main.py
    ```
@@ -56,8 +56,5 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-For any questions or support, please contact the project maintainer.
+For any questions or support, please contact me at telegram @nwsynx.
 
----
-
-This README provides a comprehensive overview of the `esp8266-otp` project, detailing its purpose, setup, and usage instructions. By following these steps, you can successfully implement and manage a TOTP system using the ESP8266.

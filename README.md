@@ -4,7 +4,7 @@
 
 The `esp8266-otp` project leverages the ESP8266 microcontroller to function as a TOTP (Time-based One-Time Password) token, allowing users to manage and update tokens through a dedicated application. This setup includes an OLED display and buttons for user interaction, offering a convenient and secure method for generating and managing OTPs.
 
-![](images/board.png)
+![](images/board.jpg)
 
 
 ## Getting Started

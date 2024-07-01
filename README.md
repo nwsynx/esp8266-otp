@@ -42,7 +42,8 @@ The `esp8266-otp` project leverages the ESP8266 microcontroller to function as a
 2. **Connect to ESP8266**: Select the correct COM port and baud rate.
 3. **Authenticate**: Enter the master PIN to access the management interface.
 4. **Manage Tokens**: Use the GUI to add or delete tokens, update WiFi settings, and change the master PIN.
-   ![GUI](images/gui.png)
+
+   ![Select port](images/select_port.png) ![Enter PIN](images/enter_pin.png) ![GUI](images/gui.png)
 
 
 ## Contributions

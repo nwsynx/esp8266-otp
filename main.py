@@ -1,3 +1,4 @@
+import serial.serialutil
 import serial.tools.list_ports
 import dearpygui.dearpygui as dpg
 import serial
@@ -24,17 +25,23 @@ def alert(message, button=True):
             dpg.add_button(label="Ok", pos=[70, 69], width=45, callback=lambda: dpg.delete_item('info-st-gui'))
 
 def serial_talkie(port, baud, message, bytes):
-    with serial.Serial(port, baud, timeout=5) as sir:
-        sir.write(f"{message}".encode())
-        response = sir.read(bytes)
-        return response
-
+    try:
+        with serial.Serial(port, baud, timeout=2) as sir:
+            sir.write(f"{message}".encode())
+            response = sir.read(bytes)
+            return response
+    except serial.serialutil.SerialException:
+        alert("Could'nt open the port.\n(Maybe the COM port is \nopenby other program.)")
+        return False
+    except Exception:
+        return False
+        
 def list_com_ports():
     return [port.device for port in serial.tools.list_ports.comports()]
 
 def is_esp8266(port):
     try:
-        with serial.Serial(port, baudrate=115200, timeout=1) as ser:
+        with serial.Serial(port, baudrate=115200, timeout=2) as ser:
             ser.write(b'{"action": "call"}\r\n')
             response = ser.read(100)
             if b'OK' in response:
@@ -43,10 +50,11 @@ def is_esp8266(port):
         pass
     return False
 
-
 def cb_delete_window(tag):
+    global config
     try:
         dpg.delete_item(tag)
+        config['gui'] = 1
         select_esp_gui()
     except Exception:
         pass
@@ -57,134 +65,171 @@ def cb_token_delete(id):
     config['tokens_count'] -= 1
 
 def cb_detectesp():
-    ports = list_com_ports()
-    for port in ports:
-        label = port if is_esp8266(port) else port
-        dpg.set_value("select-esp-port", port)
-        return
-    dpg.set_value("select-esp-port", "")
+    try:
+        ports = list_com_ports()
+        for port in ports:
+            label = port if is_esp8266(port) else port
+            dpg.set_value("select-esp-port", port)
+            return
+        dpg.set_value("select-esp-port", "")
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
 
 def cb_next():
-    global config
-    port, baud = dpg.get_value("select-esp-port"), dpg.get_value("select-esp-baud")
-    if not baud or not port:
-        alert("Port or baud empty")
-        return
-    config["baud"] = int(baud)
-    config["port"] = port
-    config["gui"] = 2
-    dpg.delete_item("select-esp")
-    enter_pin_gui()
+    try:
+        global config
+        port, baud = dpg.get_value("select-esp-port"), dpg.get_value("select-esp-baud")
+        if not baud or not port:
+            alert("Port or baud empty")
+            return
+        config["baud"] = int(baud)
+        config["port"] = port
+        config["gui"] = 2
+        dpg.delete_item("select-esp")
+        enter_pin_gui()
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
 
 def cb_enter():
-    global config
-    pin = dpg.get_value("enter-pin-passcode")
-    data = json.dumps({
-        'action': 'auth',
-        'pin': pin
-    })
-    alert("Authing...", False)
-    response = serial_talkie(config['port'], config['baud'], data, 100)
-    if response and b'OK' in response:
-        config["gui"] = 3
-        config["pin"] = pin
-        dpg.delete_item("enter-pin")
-        main_gui()
-        alert("Authentication \nsuccessful")
-    else:
-        alert("Authentication failed")
+    try:
+        global config
+        pin = dpg.get_value("enter-pin-passcode")
+        data = json.dumps({
+            'action': 'auth',
+            'pin': pin
+        })
+        alert("Authing...", False)
+        response = serial_talkie(config['port'], config['baud'], data, 100)
+        if response and b'OK' in response:
+            config["gui"] = 3
+            config["pin"] = pin
+            dpg.delete_item("enter-pin")
+            main_gui()
+            alert("Authentication \nsuccessful")
+        elif not response:
+            pass
+        else:
+            alert("Authentication failed")
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
 
 def cb_changepin():
-    global config
-    oldpin, newpin = dpg.get_value("manage-oldpin"), dpg.get_value("manage-newpin")
-    if not oldpin or not newpin:
-        alert("Old or new pin-code is\n empty")
-        return
-    data = json.dumps({
-        'action': 'change_pin',
-        'old_pin': oldpin,
-        'new_pin': newpin
-    })
-    alert("Changing PIN-Code..", False)
-    response = serial_talkie(config['port'], config['baud'], data, 100)
-    if response and b'OK' in response:
-        alert("PIN changed \nsuccessfully")
-        config['pin'] = newpin
-    else:
-        alert("Incorrect old PIN")
+    try:
+        global config
+        oldpin, newpin = dpg.get_value("manage-oldpin"), dpg.get_value("manage-newpin")
+        if not oldpin or not newpin:
+            alert("Old or new pin-code is\n empty")
+            return
+        data = json.dumps({
+            'action': 'change_pin',
+            'old_pin': oldpin,
+            'new_pin': newpin
+        })
+        alert("Changing PIN-Code..", False)
+        response = serial_talkie(config['port'], config['baud'], data, 100)
+        if response and b'OK' in response:
+            alert("PIN changed \nsuccessfully")
+            config['pin'] = newpin
+        elif not response:
+            pass
+        else:
+            alert("Incorrect old PIN")
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
 
 def cb_wifisettings():
-    global config
-    wifi, passwd = dpg.get_value("manage-wifi"), dpg.get_value("manage-wifipwd")
-    if not wifi or not passwd:
-        alert("WiFi SSID or WiFi\n Password is empty")
-        return
-    data = json.dumps({
-        'action': 'change_wifi',
-        'pin': config['pin'],
-        'wifi': wifi,
-        'password': passwd
-    })
-    alert("Updating WiFi settings..", False)
-    response = serial_talkie(config['port'], config['baud'], data, 100)
-    if response and b'OK' in response:
-        alert("WiFi settings updated\n successfully")
-    else:
-        alert("Failed to update WiFi\n settings")
+    try:
+        global config
+        wifi, passwd = dpg.get_value("manage-wifi"), dpg.get_value("manage-wifipwd")
+        if not wifi or not passwd:
+            alert("WiFi SSID or WiFi\n Password is empty")
+            return
+        data = json.dumps({
+            'action': 'change_wifi',
+            'pin': config['pin'],
+            'wifi': wifi,
+            'password': passwd
+        })
+        alert("Updating WiFi settings..", False)
+        response = serial_talkie(config['port'], config['baud'], data, 100)
+        if response and b'OK' in response:
+            alert("WiFi settings updated\n successfully")
+        elif not response:
+            pass
+        else:
+            alert("Failed to update WiFi\n settings")
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
 
 def cb_savedata():
-    global config
-    tokens = []
+    try:
+        global config
+        tokens = []
 
-    for i in range(1, config['tokens_count'] + 1):
-        name = dpg.get_value(f"token-name-{i}")
-        secret = dpg.get_value(f"token-secret-{i}")
-        if name and secret:
-            secret_bytes = base64.b32decode(secret, casefold=True)
-            tokens.append({
-                "name": name,
-                "secret": list(secret_bytes)
-            })
+        for i in range(1, config['tokens_count'] + 1):
+            name = dpg.get_value(f"token-name-{i}")
+            secret = dpg.get_value(f"token-secret-{i}")
+            if name and secret:
+                secret_bytes = base64.b32decode(secret, casefold=True)
+                tokens.append({
+                    "name": name,
+                    "secret": list(secret_bytes)
+                })
 
-    data = json.dumps({
-        'action': 'save_tokens',
-        'pin': config['pin'],
-        'tokens': tokens
-    })
-    alert("Saving data...", False)
-    response = serial_talkie(config['port'], config['baud'], data, 100)
-    if response and b'OK' in response:
-        alert("Tokens saved\n successfully")
-    else:
-        alert("Failed to save tokens")
+        data = json.dumps({
+            'action': 'save_tokens',
+            'pin': config['pin'],
+            'tokens': tokens
+        })
+        alert("Saving data...", False)
+        response = serial_talkie(config['port'], config['baud'], data, 100)
+        if response and b'OK' in response:
+            alert("Tokens saved\n successfully")
+        elif not response:
+            pass
+        else:
+            alert("Failed to save tokens")
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
 
 def cb_refreshdata():
-    global config
-    data = json.dumps({
-        'action': 'get_data',
-        'pin': config['pin']
-    })
-    for i in range(1, config['tokens_count'] + 1):
-        cb_token_delete(i)
-    config['tokens_count'] = 0
-    alert("Refreshing data..", False)
-    response = serial_talkie(config['port'], config['baud'], data, 1024)
-    if response:
-        try:
-            response_data = json.loads(response.decode())
-            if 'tokens' in response_data:
-                config['tokens_count'] = len(response_data['tokens'])
-                for idx, token in enumerate(response_data['tokens']):
-                    name = token['name']
-                    secret = base64.b32encode(bytes(token['secret'])).decode('utf-8')
-                    cb_addtoken(name=name, secret=secret)
-                    alert("Done!")
-        except json.JSONDecodeError:
-            alert(f"Failed to parse data\n from ESP8266")
-    else:
-        alert("Failed to get data from\n ESP8266")
+    try:
+        global config
+        data = json.dumps({
+            'action': 'get_data',
+            'pin': config['pin']
+        })
+        for i in range(1, config['tokens_count'] + 1):
+            cb_token_delete(i)
+        config['tokens_count'] = 0
+        alert("Refreshing data..", False)
+        response = serial_talkie(config['port'], config['baud'], data, 1024)
+        if response:
+            try:
+                response_data = json.loads(response.decode())
+                if 'tokens' in response_data:
+                    config['tokens_count'] = len(response_data['tokens'])
+                    for idx, token in enumerate(response_data['tokens']):
+                        name = token['name']
+                        secret = base64.b32encode(bytes(token['secret'])).decode('utf-8')
+                        cb_addtoken(name=name, secret=secret)
+                        alert("Done!")
+            except json.JSONDecodeError:
+                alert(f"Failed to parse data\n from ESP8266")
+        elif not response:
+            pass
+        else:
+            alert("Failed to get data from\n ESP8266")
+    except Exception as e:
+        alert("Exception. Check output")
+        print(str(e))
     
-
 def cb_addtoken(name="", secret=""):
     global config
     id = config["tokens_count"] + 1
@@ -251,7 +296,6 @@ def main():
     dpg.show_viewport()
     dpg.start_dearpygui()
     dpg.destroy_context()
-
 
 if __name__ == "__main__":
     main()

@@ -19,20 +19,24 @@
 #define BUTTON_LEFT 12
 #define BUTTON_RIGHT 2
 
-const char* defaultPin = "000000";
+#define MAX_HMAC_KEY_LENGTH 32
+
+
+const char* defaultPin = "750128";
 int currentIndex = 0;
 const int TIME_STEP = 30;
 
 struct OTPToken {
-  uint8_t hmacKey[10];
+  uint8_t hmacKey[MAX_HMAC_KEY_LENGTH];
   char name[20];
+  uint8_t keyLength;
 };
 
 struct EEPROMData {
   char ssid[32];
   char password[32];
   char storedPin[10];
-  OTPToken otpTokens[999];
+  OTPToken otpTokens[32];
   int tokensCount;
 };
 
@@ -42,7 +46,7 @@ TOTP myTOTP(eepromData.otpTokens[0].hmacKey, sizeof(eepromData.otpTokens[0].hmac
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
 void saveConfig() {
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(16384);
   doc["ssid"] = eepromData.ssid;
   doc["password"] = eepromData.password;
   doc["storedPin"] = eepromData.storedPin;
@@ -51,8 +55,9 @@ void saveConfig() {
   for (int i = 0; i < eepromData.tokensCount; ++i) {
     JsonObject token = tokens.createNestedObject();
     token["name"] = eepromData.otpTokens[i].name;
+    token["keyLength"] = eepromData.otpTokens[i].keyLength;
     JsonArray secret = token.createNestedArray("secret");
-    for (int j = 0; j < 10; ++j) {
+    for (int j = 0; j < eepromData.otpTokens[i].keyLength; ++j) {
       secret.add(eepromData.otpTokens[i].hmacKey[j]);
     }
   }
@@ -73,13 +78,7 @@ bool loadConfig() {
     return false;
   }
 
-  size_t size = configFile.size();
-  if (size > 4096) {
-    Serial.println("CONFIG FAIL SIZE");
-    return false;
-  }
-
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(16384);
   DeserializationError error = deserializeJson(doc, configFile);
   if (error) {
     Serial.println("CONFIG FAIL");
@@ -95,8 +94,13 @@ bool loadConfig() {
   for (int i = 0; i < eepromData.tokensCount; ++i) {
     JsonObject token = tokens[i];
     strlcpy(eepromData.otpTokens[i].name, token["name"] | "", sizeof(eepromData.otpTokens[i].name));
+    eepromData.otpTokens[i].keyLength = token["keyLength"] | 16;
     JsonArray secret = token["secret"];
-    for (int j = 0; j < 10; ++j) {
+
+    if (eepromData.otpTokens[i].keyLength > MAX_HMAC_KEY_LENGTH) {
+      eepromData.otpTokens[i].keyLength = MAX_HMAC_KEY_LENGTH;
+    }
+    for (int j = 0; j < eepromData.otpTokens[i].keyLength; ++j) {
       eepromData.otpTokens[i].hmacKey[j] = secret[j];
     }
   }
@@ -104,6 +108,7 @@ bool loadConfig() {
   configFile.close();
   return true;
 }
+
 
 void displayConfigMessage() {
   display.clearDisplay();
@@ -149,17 +154,18 @@ void changePin(String oldPin, String newPin) {
   if (oldPin == eepromData.storedPin) {
     strcpy(eepromData.storedPin, newPin.c_str());
     saveConfig();
-    Serial.println("OK");
+    Serial.println("OK\r\n");
   } else {
-    Serial.println("FAIL");
+    Serial.println("FAIL\r\n");
   }
 }
 
 void authenticate(String pin) {
+  Serial.println(pin);
   if (pin == eepromData.storedPin) {
-    Serial.println("OK");
+    Serial.println("OK\r\n");
   } else {
-    Serial.println("FAIL");
+    Serial.println("FAIL\r\n");
   }
 }
 
@@ -168,15 +174,15 @@ void changeWifi(String pin, const char* wifi, const char* passwd) {
     strcpy(eepromData.ssid, wifi);
     strcpy(eepromData.password, passwd);
     saveConfig();
-    Serial.println("OK");
+    Serial.println("OK\r\n");
   } else {
-    Serial.println("FAIL");
+    Serial.println("FAIL\r\n");
   }
 }
 
 void saveTokens(DynamicJsonDocument& doc) {
   if (doc["pin"] != eepromData.storedPin) {
-    Serial.println("FAIL");
+    Serial.println("FAIL\r\n");
     return;
   }
 
@@ -184,24 +190,31 @@ void saveTokens(DynamicJsonDocument& doc) {
   eepromData.tokensCount = tokens.size();
   for (int i = 0; i < eepromData.tokensCount; ++i) {
     JsonObject token = tokens[i];
-    for (int j = 0; j < 10; ++j) {
+    eepromData.otpTokens[i].keyLength = token["secret"].size();
+
+    if (eepromData.otpTokens[i].keyLength > MAX_HMAC_KEY_LENGTH) {
+      Serial.println("FAIL: Key too long\r\n");
+      return;
+    }
+
+    for (int j = 0; j < eepromData.otpTokens[i].keyLength; ++j) {
       eepromData.otpTokens[i].hmacKey[j] = token["secret"][j];
     }
     strcpy(eepromData.otpTokens[i].name, token["name"]);
   }
   saveConfig();
-  Serial.println("OK");
+  Serial.println("OK\r\n");
 }
 
 void getTokens(String pin) {
   if (pin == eepromData.storedPin) {
-    DynamicJsonDocument doc(4096);
+    DynamicJsonDocument doc(16384);
     JsonArray tokens = doc.createNestedArray("tokens");
     for (int i = 0; i < eepromData.tokensCount; ++i) {
       JsonObject token = tokens.createNestedObject();
       token["name"] = eepromData.otpTokens[i].name;
       JsonArray secret = token.createNestedArray("secret");
-      for (int j = 0; j < 10; ++j) {
+      for (int j = 0; j < 20; ++j) {
         secret.add(eepromData.otpTokens[i].hmacKey[j]);
       }
     }
@@ -209,12 +222,12 @@ void getTokens(String pin) {
     serializeJson(doc, response);
     Serial.println(response);
   } else {
-    Serial.println("FAIL");
+    Serial.println("FAIL\r\n");
   }
 }
 
 void handleRequest(String request) {
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(16384);
   DeserializationError error = deserializeJson(doc, request);
 
   if (error) {
@@ -228,7 +241,7 @@ void handleRequest(String request) {
   } else if (action == "change_pin") {
     changePin(doc["old_pin"], doc["new_pin"]);
   } else if (action == "call") {
-    Serial.println("OK");
+    Serial.println("OK\r\n"); // {"action":"change_pin","old_pin":"750128","new_pin":"6425"}
   } else if (action == "change_wifi") {
     changeWifi(doc["pin"], doc["wifi"], doc["password"]);
   } else if (action == "save_tokens") {
@@ -283,16 +296,17 @@ void setup() {
 void loop() {
   if (Serial.available() > 0) {
     String request = Serial.readStringUntil('\n');
+    request.trim();
     handleRequest(request);
   }
 
   if (digitalRead(BUTTON_LEFT) == LOW) {
     currentIndex = (currentIndex - 1 + eepromData.tokensCount) % eepromData.tokensCount;
-    myTOTP = TOTP(eepromData.otpTokens[currentIndex].hmacKey, sizeof(eepromData.otpTokens[currentIndex].hmacKey));
+    myTOTP = TOTP(eepromData.otpTokens[currentIndex].hmacKey, eepromData.otpTokens[currentIndex].keyLength);
     delay(125);
   } else if (digitalRead(BUTTON_RIGHT) == LOW) {
     currentIndex = (currentIndex + 1) % eepromData.tokensCount;
-    myTOTP = TOTP(eepromData.otpTokens[currentIndex].hmacKey, sizeof(eepromData.otpTokens[currentIndex].hmacKey));
+    myTOTP = TOTP(eepromData.otpTokens[currentIndex].hmacKey, eepromData.otpTokens[currentIndex].keyLength);
     delay(125);
   }
 

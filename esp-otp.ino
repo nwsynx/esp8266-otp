@@ -42,7 +42,7 @@ TOTP myTOTP(eepromData.otpTokens[0].hmacKey, sizeof(eepromData.otpTokens[0].hmac
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
 void saveConfig() {
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(8192);
   doc["ssid"] = eepromData.ssid;
   doc["password"] = eepromData.password;
   doc["storedPin"] = eepromData.storedPin;

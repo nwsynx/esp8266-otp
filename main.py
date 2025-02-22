@@ -4,6 +4,7 @@ import dearpygui.dearpygui as dpg
 import serial
 import json
 import base64
+import binascii
 
 config = {
 
@@ -27,13 +28,15 @@ def alert(message, button=True):
 def serial_talkie(port, baud, message, bytes):
     try:
         with serial.Serial(port, baud, timeout=2) as sir:
-            sir.write(f"{message}".encode())
+            sir.write(f"{message}\r\n".encode())
             response = sir.read(bytes)
+            print(response)
             return response
     except serial.serialutil.SerialException:
         alert("Could'nt open the port.\n(Maybe the COM port is \nopenby other program.)")
         return False
-    except Exception:
+    except Exception as e:
+        print(str(e))
         return False
         
 def list_com_ports():
@@ -180,12 +183,12 @@ def cb_savedata():
                     "name": name,
                     "secret": list(secret_bytes)
                 })
-
         data = json.dumps({
             'action': 'save_tokens',
             'pin': config['pin'],
             'tokens': tokens
         })
+        print(data)
         alert("Saving data...", False)
         response = serial_talkie(config['port'], config['baud'], data, 100)
         if response and b'OK' in response:
@@ -209,7 +212,7 @@ def cb_refreshdata():
             cb_token_delete(i)
         config['tokens_count'] = 0
         alert("Refreshing data..", False)
-        response = serial_talkie(config['port'], config['baud'], data, 1024)
+        response = serial_talkie(config['port'], config['baud'], data, 4092)
         if response:
             try:
                 response_data = json.loads(response.decode())
@@ -258,17 +261,17 @@ def enter_pin_gui():
         dpg.add_text("Enter PIN-Code:", pos=[47.5, 20])
         dpg.add_input_text(tag="enter-pin-passcode", pos=[35, 40])
         with dpg.child_window(no_scrollbar=True, pos=[8, 70]): # do not touch
-            dpg.add_button(label="1", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}1"), width=40, height=40, pos=[25, 5])
-            dpg.add_button(label="2", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}2"), width=40, height=40, pos=[70, 5])
-            dpg.add_button(label="3", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}3"), width=40, height=40, pos=[115, 5])
-            dpg.add_button(label="4", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}4"), width=40, height=40, pos=[25, 50])
-            dpg.add_button(label="5", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}5"), width=40, height=40, pos=[70, 50])
-            dpg.add_button(label="6", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}6"), width=40, height=40, pos=[115, 50])
-            dpg.add_button(label="7", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}7"), width=40, height=40, pos=[25, 95])
-            dpg.add_button(label="8", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}8"), width=40, height=40, pos=[70, 95])
-            dpg.add_button(label="9", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}9"), width=40, height=40, pos=[115, 95])
+            dpg.add_button(label="1", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}1"), width=40, height=40, pos=[25, 5])
+            dpg.add_button(label="2", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}2"), width=40, height=40, pos=[70, 5])
+            dpg.add_button(label="3", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}3"), width=40, height=40, pos=[115, 5])
+            dpg.add_button(label="4", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}4"), width=40, height=40, pos=[25, 50])
+            dpg.add_button(label="5", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}5"), width=40, height=40, pos=[70, 50])
+            dpg.add_button(label="6", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}6"), width=40, height=40, pos=[115, 50])
+            dpg.add_button(label="7", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}7"), width=40, height=40, pos=[25, 95])
+            dpg.add_button(label="8", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}8"), width=40, height=40, pos=[70, 95])
+            dpg.add_button(label="9", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}9"), width=40, height=40, pos=[115, 95])
             dpg.add_button(label="enter", width=40, height=40, pos=[25, 140], callback=cb_enter)
-            dpg.add_button(label="0", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value("enter-pin-passcode")}0"), width=40, height=40, pos=[70, 140])
+            dpg.add_button(label="0", callback=lambda: dpg.set_value("enter-pin-passcode", f"{dpg.get_value('enter-pin-passcode')}0"), width=40, height=40, pos=[70, 140])
             dpg.add_button(label="<-", callback=lambda: dpg.set_value("enter-pin-passcode", ""), width=40, height=40, pos=[115, 140])
 
 def main_gui():
